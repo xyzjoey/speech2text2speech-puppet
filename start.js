@@ -15,13 +15,9 @@ import Input from './src/inputs.js'
     const page = (await browser.pages())[0];
 
     const googledoc = await GoogleDoc.create(page, config.googledoc.editableLink);
-    await googledoc.scrollToBottom();
-    await page.waitFor(1000);
-    await googledoc.scrollToLastLine();
-    await googledoc.moveCursorToEnd();
-
+    
     Input.registerShortcut('', ['leftShift', 'leftAlt', 'P'], key => {
-        googledoc.voicetype.keepOrStop();
+        googledoc.toggleAutoTranscribe();
     })
 
     console.log('ready');

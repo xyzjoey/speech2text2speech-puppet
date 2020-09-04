@@ -16,12 +16,12 @@ class Input {
         }
     }
 
-    static ids = {};
+    static shortcutIds = {};
 
     static registerShortcut(shortcutName, keynames, callback) {
         const keycodes = keynames.map(name => Input.keycodes[name]);
         const id = iohook.registerShortcut(keycodes, callback);
-        Input.ids[shortcutName] = id;
+        Input.shortcutIds[shortcutName] = id;
     }
 }
 
