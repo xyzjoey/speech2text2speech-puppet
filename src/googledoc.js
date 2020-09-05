@@ -1,6 +1,6 @@
 'use strict';
 
-import { last, removeSpace, readData } from './utils.js'
+import { last, removeSpace, pixelToNumber, readData } from './utils.js'
 
 const SELECTOR = readData('googledoc.yml').selector;
 // const TEXT = readData('googledoc.yml').text; // TODO read once
@@ -97,14 +97,16 @@ class GoogleDoc {
     }
 
     async getPageBottoms() 
-    { return this.page.$$(SELECTOR.pageBottoms); }
+    { return this.page.$$(SELECTOR.pageBottom); }
     async getParagraphs() 
-    { return this.page.$$(SELECTOR.paragraphs); }
+    { return this.page.$$(SELECTOR.paragraph); }
     async getCursor()
     { return this.page.$(SELECTOR.cursor); }
 
     static async create(page, url) {
         const googledoc = new GoogleDoc(page, url);
+        await page.exposeFunction('removeSpace', removeSpace);
+        await page.exposeFunction('pixelToNumber', pixelToNumber);
 
         await googledoc.init();
         return googledoc;
@@ -162,8 +164,45 @@ class GoogleDoc {
         }));
     }
 
-    async getLastLine() {
-        return last(await this.getParagraphs()).evaluate(el => el.innerText);
+    // return text that is not overlapped by dots
+    async getLastParagraphText() {
+        return last(await this.getParagraphs()).evaluate(async (
+            paragraph, 
+            SELECTOR,
+        ) => {
+            let visibleText = '';
+            const lines = paragraph.querySelectorAll(SELECTOR.line);
+            
+            for (let i = 0; i < lines.length; ++i) {
+                const line = lines[i];
+                const wordNode = line.querySelector(SELECTOR.wordNode);
+                const allText = await removeSpace(wordNode.innerText, /\u200C/g);
+                const visibleWidth = await pixelToNumber(line.querySelector(SELECTOR.dots)?.style?.left);
+
+                if (visibleWidth === null || isNaN(visibleWidth)) {
+                    visibleText += allText;
+                }
+                else { // increment characters until start of dots
+                    const nodeCopy = wordNode.cloneNode(true);
+                    nodeCopy.style.position = 'absolute';
+                    nodeCopy.style.left = 0;
+                    nodeCopy.style.top = 0;
+                    nodeCopy.style.opacity = 0;
+                    document.body.appendChild(nodeCopy);
+
+                    for (let i = 0; i < allText.length; ++i) {
+                        nodeCopy.innerText = allText.substring(0, i+1);
+                        if (visibleWidth - nodeCopy.offsetWidth > -1) visibleText += allText[i];
+                        else break;
+                    }
+
+                    document.body.removeChild(nodeCopy);
+                    break;
+                }
+            }
+            // console.log('visibleText', visibleText);
+            return visibleText;
+        }, SELECTOR);
     }
     async insertNewLine() {
         await this.page.keyboard.press(String.fromCharCode(13)); // press enter
@@ -171,6 +210,8 @@ class GoogleDoc {
 
     async autoNewLine() {
         console.log('GOOGLEDOC: start auto new line');
+
+        if (this.cursorInterval) return;
 
         // const / var
         const intervalTime = 750;
@@ -182,24 +223,22 @@ class GoogleDoc {
         const isLineEmpty = line => removeSpace(line).length < 1;
 
         // set interval
-        if (!this.cursorInterval) {
-            this.cursorInterval = setInterval(async () => {
-                await this.moveCursorToEnd();
-                const newCursorPos = await this.getCursorPos();
-                const lastline = await this.getLastLine();
+        this.cursorInterval = setInterval(async () => {
+            await this.moveCursorToEnd();
+            const newCursorPos = await this.getCursorPos();
+            const lastline = await this.getLastParagraphText();
 
-                if (isPosChanged(currCursorPos, newCursorPos) || isLineEmpty(lastline)) idleTime = 0;
-                else idleTime += intervalTime;
+            if (isPosChanged(currCursorPos, newCursorPos) || isLineEmpty(lastline)) idleTime = 0;
+            else idleTime += intervalTime;
 
-                if (idleTime >= maxIdleTime) {
-                    console.log('GOOGLEDOC: insert new line')
-                    await this.insertNewLine();
-                    idleTime = 0;
-                }
+            if (idleTime >= maxIdleTime) {
+                console.log('GOOGLEDOC: insert new line')
+                await this.insertNewLine();
+                idleTime = 0;
+            }
 
-                currCursorPos = newCursorPos;
-            }, intervalTime);
-        }
+            currCursorPos = newCursorPos;
+        }, intervalTime);
     }
 
     stopAutoNewLine() {

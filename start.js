@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-core'
 
-import GoogleDoc from './src/googledoc.js'
-import Input from './src/inputs.js'
+import GoogleDoc from './src/GoogleDoc.js'
+import Input from './src/Input.js'
 import { readYaml } from './src/utils.js'
 
 const config = readYaml('./config.yml');
@@ -19,6 +19,9 @@ const config = readYaml('./config.yml');
     const googledoc = await GoogleDoc.create(page, config.googledoc.editableLink);
     await googledoc.voicetype.setLanguage(config.defaultLanguage);
     
+    // set text handling interval
+    // const 
+
     // set shorcuts
     Input.registerShortcut('init', 
                             config.shortcuts.init, 

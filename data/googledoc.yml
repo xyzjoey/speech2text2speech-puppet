@@ -1,7 +1,10 @@
 selector:
-  pageBottoms: .kix-page-column-bottom
-  paragraphs: .kix-paragraphrenderer
   cursor: .kix-cursor
+  pageBottom: .kix-page-column-bottom
+  paragraph: .kix-paragraphrenderer # > div > .kix-lineview-content
+  line: .kix-lineview
+  dots: .kix-dictation-dotted-span
+  wordNode: .kix-wordhtmlgenerator-word-node
   voicetype:
     mic: .docs-mic-control
     lang:

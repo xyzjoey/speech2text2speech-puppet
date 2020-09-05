@@ -14,10 +14,8 @@ export const readData = (pathFromDataDir) => {
     return readYaml(path.join(paths.src, '../data', pathFromDataDir));
 };
 
-export const last = (arr) => {
-    return arr[arr.length-1];
-};
+export const last = (arr) => arr[arr.length-1];
 
-export const removeSpace = (str) => {
-    return str.replace(/(\s|\u200C)/g,'');
-};
+export const removeSpace = (str, pattern=/(\s|\u200C)/g) => str.replace(pattern,'');
+
+export const pixelToNumber = (str) => +str?.replace('px', '');
