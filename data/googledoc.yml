@@ -1,0 +1,16 @@
+selector:
+  pageBottoms: .kix-page-column-bottom
+  paragraphs: .kix-paragraphrenderer
+  cursor: .kix-cursor
+  voicetype:
+    mic: .docs-mic-control
+    lang:
+      button: .goog-inline-block.goog-flat-menu-button:not([data-tooltip])
+      en: '[role="menu"][style*="visibility: visible"] > div > div > span[lang="en"]'
+      zh_CN: '[role="menu"][style*="visibility: visible"] > div > div > span[lang="zh_CN"]'
+      ja: '[role="menu"][style*="visibility: visible"] > div > div > span[lang="ja"]'
+# text:
+#   lang:
+#     en: English (United States)
+#     zh_CN: 中文（中国）
+#     ja: 日本語

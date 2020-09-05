@@ -1,20 +1,33 @@
-import { last } from './utils.js'
+'use strict';
 
-class GoogleDocSelector {
-    static get pageBottoms() { return '.kix-page-column-bottom'; }
-    static get paragraphs() { return '.kix-paragraphrenderer'; }
-    static get micSwitch() { return '.docs-mic-control'; }
-    static get cursor() { return '.kix-cursor'; }
-}
+import { last, removeSpace, readData } from './utils.js'
+
+const SELECTOR = readData('googledoc.yml').selector;
+// const TEXT = readData('googledoc.yml').text; // TODO read once
 
 class VoiceType {
     constructor(page) {
         this.page = page;
         this.keepOnInterval = undefined;
+        this.language = undefined; // TODO put default language in config
     }
 
-    async getMicSwitch() 
-    { return this.page.$(GoogleDocSelector.micSwitch); }
+    async getMic() 
+    { return this.page.$(SELECTOR.voicetype.mic); }
+    async getLanguageButton()
+    { return this.page.$(SELECTOR.voicetype.lang.button); }
+
+    async setLanguage(language) {
+        if (this.language === language) return;
+        
+        console.log(`GOOGLEDOC: voicetype: switch lang ${language}`);
+        this.language = language;
+
+        await this.off();
+        await this.page.click(SELECTOR.voicetype.lang.button);
+        await this.page.waitForSelector(SELECTOR.voicetype.lang[language], {timeout: 1000});
+        await this.page.click(SELECTOR.voicetype.lang[language]);
+    }
 
     async toggle() {
         // press shortcut Shift + Ctrl + S
@@ -26,19 +39,27 @@ class VoiceType {
     }
 
     async isOn() {
-        const switchPressed = await (await this.getMicSwitch())?.evaluate(el => el.ariaPressed);
+        const switchPressed = await (await this.getMic())?.evaluate(el => el.ariaPressed);
         return switchPressed === 'true';
     }
 
     async on() {
-        if (!(await this.isOn())) await this.toggle();
+        if (!await this.isOn()) {
+            await this.toggle();
+            return true;
+        }
+        return false;
     }
     async off() {
-        if (await this.isOn()) await this.toggle();
+        if (await this.isOn()) {
+            await this.toggle();
+            return true;
+        }
+        return false;
     }
 
     async keepOn() {
-        console.log('googledoc: voicetype: keep on');
+        console.log('GOOGLEDOC: voicetype: keep on');
         await this.on();
         
         if (!this.keepOnInterval) {
@@ -49,7 +70,7 @@ class VoiceType {
     }
 
     async stopOn() {
-        console.log('googledoc: voicetype: stop');
+        console.log('GOOGLEDOC: voicetype: stop');
         clearInterval(this.keepOnInterval);
         this.keepOnInterval = undefined;
         await this.off();
@@ -65,37 +86,54 @@ class VoiceType {
 }
 
 class GoogleDoc {
-    constructor(page) {
+    constructor(page, url) {
         this.page = page;
-        this.voicetype = new VoiceType(page);
+        this.url = url;
+        this.id = /docs.google.com\/document\/d\/(?<id>.*)\/edit/.exec(url).groups.id;
 
-        this.isAutoTranscribeOn = false;
+        this.voicetype = new VoiceType(page);
+        this.isAutoTranscribeOn = false; // TODO remove
         this.cursorInterval = undefined;
     }
 
     async getPageBottoms() 
-    { return this.page.$$(GoogleDocSelector.pageBottoms); }
+    { return this.page.$$(SELECTOR.pageBottoms); }
     async getParagraphs() 
-    { return this.page.$$(GoogleDocSelector.paragraphs); }
+    { return this.page.$$(SELECTOR.paragraphs); }
     async getCursor()
-    { return this.page.$(GoogleDocSelector.cursor); }
+    { return this.page.$(SELECTOR.cursor); }
 
     static async create(page, url) {
-        const googledoc = new GoogleDoc(page);
+        const googledoc = new GoogleDoc(page, url);
 
-        await page.goto(url);
+        await googledoc.init();
+        return googledoc;
+    }
+
+    async init() {
+        // goto url
+        if (!this.page.url().includes(this.id))
+            await this.page.goto(this.url);
 
         // close left panel
-        await page.waitForSelector('.navigation-widget-hat-close', {visible:true, timeout:3000});
-        await page.click('.navigation-widget-hat-close');
-        // init cursor position
-        await googledoc.activateCursor();
-        await googledoc.moveCursorToEnd();
-        // open voicetype popup
-        await googledoc.voicetype.toggle();
-        await googledoc.voicetype.toggle();
+        try {
+            await this.page.waitForSelector('.navigation-widget-hat-close', {visible:true, timeout:3000});
+            await this.page.click('.navigation-widget-hat-close');
+        } catch (e) {}
 
-        return googledoc;
+        // init cursor position
+        await this.activateCursor();
+        await this.moveCursorToEnd();
+
+        // open voicetype
+        try{
+            await this.page.waitForSelector(SELECTOR.voicetype.mic, {visible:true, timeout:100});
+        } catch (e) {
+            await this.voicetype.toggle();
+            await this.voicetype.toggle();
+        }
+
+        console.log('GOOGLEDOC: ready');
     }
 
     // async scrollToBottom() {
@@ -132,7 +170,7 @@ class GoogleDoc {
     }
 
     async autoNewLine() {
-        console.log('googledoc: start auto new line');
+        console.log('GOOGLEDOC: start auto new line');
 
         // const / var
         const intervalTime = 750;
@@ -140,8 +178,8 @@ class GoogleDoc {
         let idleTime = 0;
         let currCursorPos = await this.getCursorPos();
         // helpers
-        const isPosChanged = (pos1, pos2) => (pos1.x != pos2.x || pos1.y != pos2.y);
-        const isLineEmpty = (line) => (line.replace(/(\s|\u200C)/g,'').length < 1);
+        const isPosChanged = (pos1, pos2) => pos1.x != pos2.x || pos1.y != pos2.y;
+        const isLineEmpty = line => removeSpace(line).length < 1;
 
         // set interval
         if (!this.cursorInterval) {
@@ -154,7 +192,7 @@ class GoogleDoc {
                 else idleTime += intervalTime;
 
                 if (idleTime >= maxIdleTime) {
-                    console.log('googledoc: insert new line')
+                    console.log('GOOGLEDOC: insert new line')
                     await this.insertNewLine();
                     idleTime = 0;
                 }
@@ -165,11 +203,12 @@ class GoogleDoc {
     }
 
     stopAutoNewLine() {
-        console.log('googledoc: stop auto new line');
+        console.log('GOOGLEDOC: stop auto new line');
         clearInterval(this.cursorInterval);
         this.cursorInterval = undefined;
     }
 
+    // TODO remove
     async toggleAutoTranscribe() {
         if (!this.isAutoTranscribeOn) {
             this.isAutoTranscribeOn = true;
