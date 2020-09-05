@@ -1,30 +1,18 @@
 {
   "name": "speech2text2speech-puppet",
   "version": "1.0.0",
-  "description": "transcriber using free web service and puppeteer",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/xyzjoey/speech2text2speech-puppet.git"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/xyzjoey/speech2text2speech-puppet/issues"
-  },
-  "homepage": "https://github.com/xyzjoey/speech2text2speech-puppet#readme",
   "dependencies": {
     "iohook": "^0.6.6",
+    "js-yaml": "^3.14.0",
     "puppeteer-core": "^5.2.1"
   },
-  "type": "module",
-  "iohook": {
-    "targets": ["node-59"],
-    "platforms": ["win32"],
-    "arches": ["x64", "ia32"]
-  }
+  "type": "module"
 }
