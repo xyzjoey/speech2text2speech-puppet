@@ -10,15 +10,6 @@ process.on('exit', () => {
 const KEYCODES = readData('keycodes.yml');
 
 class Input {
-    static get keycodes () {
-        return {
-            'leftCtrl': 29,
-            'leftShift': 42,
-            'leftAlt': 56,
-            'P': 25,
-        }
-    }
-
     static shortcutIds = {};
 
     static registerShortcut(shortcutName, keynames, callback) {

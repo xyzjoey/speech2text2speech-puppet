@@ -20,16 +20,17 @@ const config = readYaml('./config.yml');
     await googledoc.voicetype.setLanguage(config.defaultLanguage);
     
     // set shorcuts
-    Input.registerShortcut('init', config.shortcuts.init, key => googledoc.init())
-    Input.registerShortcut('autoTranscribe', config.shortcuts.autoTranscribe, key => {
-        googledoc.toggleAutoTranscribe();
-    })
-    const langShorcuts = config.shortcuts.lang;
-    for (let lang in langShorcuts) {
-        Input.registerShortcut(lang, langShorcuts[lang], key => {
-            googledoc.voicetype.setLanguage(lang);
-        })
-    }
+    Input.registerShortcut('init', 
+                            config.shortcuts.init, 
+                            key => googledoc.init());
+    Input.registerShortcut('autoTranscribe', 
+                            config.shortcuts.autoTranscribe, 
+                            key => googledoc.toggleAutoTranscribe());
+    Object.entries(config.shortcuts.lang).forEach(([lang, keynames]) =>
+        Input.registerShortcut(lang,
+                                keynames,
+                                key => googledoc.voicetype.setLanguage(lang))
+    );
 
     console.log('ready');
 })();
