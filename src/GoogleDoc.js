@@ -1,15 +1,15 @@
-'use strict';
 
-import { last, removeSpace, pixelToNumber, readData } from './utils.js'
+import { last, removeSpace, pixelToNumber } from './utils.js'
+import SETTINGS from './settings.js'
 
-const SELECTOR = readData('googledoc.yml').selector;
-// const TEXT = readData('googledoc.yml').text; // TODO read once
+const SELECTOR = SETTINGS.googledoc.selector;
 
 class VoiceType {
     constructor(page) {
         this.page = page;
-        this.keepOnInterval = undefined;
-        this.language = undefined; // TODO put default language in config
+        this.intervals = {
+            keepOn: undefined
+        };
     }
 
     async getMic() 
@@ -18,10 +18,7 @@ class VoiceType {
     { return this.page.$(SELECTOR.voicetype.lang.button); }
 
     async setLanguage(language) {
-        if (this.language === language) return;
-        
         console.log(`GOOGLEDOC: voicetype: switch lang ${language}`);
-        this.language = language;
 
         await this.off();
         await this.page.click(SELECTOR.voicetype.lang.button);
@@ -62,8 +59,8 @@ class VoiceType {
         console.log('GOOGLEDOC: voicetype: keep on');
         await this.on();
         
-        if (!this.keepOnInterval) {
-            this.keepOnInterval = setInterval(async () => {
+        if (!this.intervals.keepOn) {
+            this.intervals.keepOn = setInterval(async () => {
                 await this.on();
             }, 1000);
         }
@@ -71,19 +68,11 @@ class VoiceType {
 
     async stopOn() {
         console.log('GOOGLEDOC: voicetype: stop');
-        clearInterval(this.keepOnInterval);
-        this.keepOnInterval = undefined;
+        clearInterval(this.intervals.keepOn);
+        this.intervals.keepOn = undefined;
         await this.off();
     }
-
-    // TODO remove
-    async keepOrStop() {
-        if (this.keepOnInterval === undefined)
-            await this.keepOn();
-        else
-            await this.stopOn();
-    }
-}
+};
 
 class GoogleDoc {
     constructor(page, url) {
@@ -92,8 +81,11 @@ class GoogleDoc {
         this.id = /docs.google.com\/document\/d\/(?<id>.*)\/edit/.exec(url).groups.id;
 
         this.voicetype = new VoiceType(page);
-        this.isAutoTranscribeOn = false; // TODO remove
-        this.cursorInterval = undefined;
+        this.currText = '';
+        this.intervals = {
+            newLine: undefined,
+            updateText: undefined
+        };
     }
 
     async getPageBottoms() 
@@ -103,31 +95,26 @@ class GoogleDoc {
     async getCursor()
     { return this.page.$(SELECTOR.cursor); }
 
-    static async create(page, url) {
-        const googledoc = new GoogleDoc(page, url);
-        await page.exposeFunction('removeSpace', removeSpace);
-        await page.exposeFunction('pixelToNumber', pixelToNumber);
-
-        await googledoc.init();
-        return googledoc;
-    }
-
-    async init() {
-        // goto url
+    async setup() {
+        // setup page
         if (!this.page.url().includes(this.id))
             await this.page.goto(this.url);
+        try { // expose helper functions if haven't
+            await this.page.exposeFunction('removeSpace', removeSpace);
+            await this.page.exposeFunction('pixelToNumber', pixelToNumber);
+        } catch (e) {}
 
-        // close left panel
+        // close left panel if haven't
         try {
             await this.page.waitForSelector('.navigation-widget-hat-close', {visible:true, timeout:3000});
             await this.page.click('.navigation-widget-hat-close');
         } catch (e) {}
 
-        // init cursor position
+        // setup cursor position
         await this.activateCursor();
-        await this.moveCursorToEnd();
+        await this.moveCursorToEnd(); // FIXME: not working from 2nd time
 
-        // open voicetype
+        // setup voicetype
         try{
             await this.page.waitForSelector(SELECTOR.voicetype.mic, {visible:true, timeout:100});
         } catch (e) {
@@ -164,25 +151,24 @@ class GoogleDoc {
         }));
     }
 
-    // return text that is not overlapped by dots
-    async getLastParagraphText() {
-        return last(await this.getParagraphs()).evaluate(async (
-            paragraph, 
-            SELECTOR,
-        ) => {
+    // set text that is not overlapped by dots
+    async updateText() {
+        this.currText = await last(await this.getParagraphs()).evaluate(async (paragraph, SELECTOR) => {
             let visibleText = '';
             const lines = paragraph.querySelectorAll(SELECTOR.line);
             
             for (let i = 0; i < lines.length; ++i) {
                 const line = lines[i];
                 const wordNode = line.querySelector(SELECTOR.wordNode);
-                const allText = await removeSpace(wordNode.innerText, /\u200C/g);
+                const allText = await removeSpace(wordNode.innerText, /(\u200C)/g);
                 const visibleWidth = await pixelToNumber(line.querySelector(SELECTOR.dots)?.style?.left);
+
+                if ((await removeSpace(allText)).length == 0) continue;
 
                 if (visibleWidth === null || isNaN(visibleWidth)) {
                     visibleText += allText;
                 }
-                else { // increment characters until start of dots
+                else { // increment characters until invisible
                     const nodeCopy = wordNode.cloneNode(true);
                     nodeCopy.style.position = 'absolute';
                     nodeCopy.style.left = 0;
@@ -200,10 +186,14 @@ class GoogleDoc {
                     break;
                 }
             }
-            // console.log('visibleText', visibleText);
+            console.log('visibleText', visibleText);
             return visibleText;
         }, SELECTOR);
+
+        // if (this.currText === String.fromCharCode(160)) // check if === &nbsp
+            // this.currText = '';
     }
+
     async insertNewLine() {
         await this.page.keyboard.press(String.fromCharCode(13)); // press enter
     }
@@ -211,7 +201,7 @@ class GoogleDoc {
     async autoNewLine() {
         console.log('GOOGLEDOC: start auto new line');
 
-        if (this.cursorInterval) return;
+        if (this.intervals.newLine) return;
 
         // const / var
         const intervalTime = 750;
@@ -223,12 +213,11 @@ class GoogleDoc {
         const isLineEmpty = line => removeSpace(line).length < 1;
 
         // set interval
-        this.cursorInterval = setInterval(async () => {
+        this.intervals.newLine = setInterval(async () => {
             await this.moveCursorToEnd();
             const newCursorPos = await this.getCursorPos();
-            const lastline = await this.getLastParagraphText();
 
-            if (isPosChanged(currCursorPos, newCursorPos) || isLineEmpty(lastline)) idleTime = 0;
+            if (isPosChanged(currCursorPos, newCursorPos) || isLineEmpty(this.currText)) idleTime = 0;
             else idleTime += intervalTime;
 
             if (idleTime >= maxIdleTime) {
@@ -243,23 +232,37 @@ class GoogleDoc {
 
     stopAutoNewLine() {
         console.log('GOOGLEDOC: stop auto new line');
-        clearInterval(this.cursorInterval);
-        this.cursorInterval = undefined;
+        clearInterval(this.intervals.newLine);
+        this.intervals.newLine = undefined;
     }
 
-    // TODO remove
-    async toggleAutoTranscribe() {
-        if (!this.isAutoTranscribeOn) {
-            this.isAutoTranscribeOn = true;
-            this.autoNewLine();
-            this.voicetype.keepOn();
-        }
-        else {
-            this.isAutoTranscribeOn = false;
-            this.stopAutoNewLine();
-            this.voicetype.stopOn();
-        }
+    autoUpdateText() {
+        if (!this.intervals.updateText)
+            this.intervals.updateText = setInterval(() => this.updateText(), 250);
     }
-}
+
+    stopAutoUpdateText() {
+        clearInterval(this.intervals.updateText);
+        this.intervals.updateText = undefined;
+    }
+
+    async setLanguage(language) {
+        await this.voicetype.setLanguage(language);
+        await this.insertNewLine();
+    }
+
+    async autoTranscribe() {
+        this.autoNewLine();
+        this.autoUpdateText();
+        await this.moveCursorToEnd();
+        this.voicetype.keepOn();
+    }
+
+    async stopAutoTranscribe() {
+        this.stopAutoNewLine();
+        this.stopAutoUpdateText();
+        this.voicetype.stopOn();
+    }
+};
 
 export default GoogleDoc;
