@@ -151,6 +151,10 @@ class GoogleDoc {
         }));
     }
 
+    async getText() {
+        return this.currText;
+    }
+
     // set text that is not overlapped by dots
     async updateText() {
         this.currText = await last(await this.getParagraphs()).evaluate(async (paragraph, SELECTOR) => {

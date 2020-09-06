@@ -1,6 +1,7 @@
 import GoogleDoc from './GoogleDoc.js'
 import Input from './Input.js'
 import SETTINGS from './settings.js'
+import { writeTxt } from './utils.js'
 
 const CONFIG = SETTINGS.config;
 
@@ -10,8 +11,11 @@ class Transcriber {
         this.googledoc = googledoc;
 
         this.language = undefined;
-        this.currText = undefined;
+        this.currText = '';
         this.isAutoTranscribeOn = false;
+        this.intervals = {
+            updateText: undefined
+        };
     }
 
     static async create(browser) {
@@ -43,9 +47,6 @@ class Transcriber {
         console.log('ready')
     }
 
-    async start() {
-    }
-
     async resetup() {
         // if !page --> create again
         await this.googledoc.setup();
@@ -62,13 +63,15 @@ class Transcriber {
             this.isAutoTranscribeOn = true;
             // cancel clear subtitle txt timeout
             // await this.text2speech.autoTranscribe();
-            await this.googledoc.autoTranscribe();
+            this.googledoc.autoTranscribe();
+            this.autoUpdateText();
         }
         else {
             this.isAutoTranscribeOn = false;
             // await this.text2speech.stopAutoTranscribe();
-            await this.googledoc.stopAutoTranscribe();
+            this.googledoc.stopAutoTranscribe();
             // clear subtitle txt after x sec
+            this.stopAutoUpdateText();
         }
     }
 
@@ -79,14 +82,27 @@ class Transcriber {
         // await this.text2speech.setLanguage(language);
     }
 
-    // async updateText() {
-    //     const newText = await this.googledoc.getLastParagraphText();
+    autoUpdateText() {
+        if (!this.intervals.updateText)
+            this.intervals.updateText = setInterval(() => this.updateText(), 250);
+    }
+
+    stopAutoUpdateText() {
+        clearInterval(this.intervals.updateText);
+        this.intervals.updateText = undefined;
+    }
+
+    async updateText() {
+        const newText = await this.googledoc.getText();
+
     //     // write text to .txt
+        writeTxt(CONFIG.subtitle.outputFile, newText);
+
     //     const textDiff = diff(this.currText, newText);
     //     // this.text2speech.speak(textDiff)
 
-    //     this.currText = newText;
-    // }
+        this.currText = newText;
+    }
 };
 
 export default Transcriber
