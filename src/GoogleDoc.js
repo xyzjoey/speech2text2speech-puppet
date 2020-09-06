@@ -189,9 +189,6 @@ class GoogleDoc {
             console.log('visibleText', visibleText);
             return visibleText;
         }, SELECTOR);
-
-        // if (this.currText === String.fromCharCode(160)) // check if === &nbsp
-            // this.currText = '';
     }
 
     async insertNewLine() {
@@ -248,6 +245,7 @@ class GoogleDoc {
 
     async setLanguage(language) {
         await this.voicetype.setLanguage(language);
+        await this.activateCursor();
         await this.insertNewLine();
     }
 
