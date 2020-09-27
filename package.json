@@ -14,5 +14,6 @@
     "js-yaml": "^3.14.0",
     "puppeteer-core": "^5.2.1"
   },
+  "devDependencies": {},
   "type": "module"
 }

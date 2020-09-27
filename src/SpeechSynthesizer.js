@@ -11,7 +11,11 @@ class SpeechSynthesizer {
     }
 
     async setup() {
-        await this.page.evaluate(() => speechSynthesis.getVoices());
+        await this.page.evaluate(() => {
+            speechSynthesis.getVoices();
+            speechSynthesis.onvoiceschanged = e => console.log('SYNTHESIS: voices ready');
+        });
+        console.log('SYNTHESIS: ready');
     }
 
     async receive(transcripts) {

@@ -5,10 +5,6 @@ export const readYaml = (path) => {
     return yaml.safeLoad(fs.readFileSync(path, 'utf8'));
 };
 
-// export const writeTxt = (filepath, data) => {
-//     fs.writeFile(filepath, data, (err) => err && console.log(err));
-// };
-
 export const getParentHandle = (page, handle) => {
     return page.evaluateHandle((el) => el?.parentNode, handle);
 };

@@ -29,7 +29,6 @@ class SpeechRecogniter {
         // TODO allow changing exposed function?
         await this.page.exposeFunction('onSpeechRecognitionResult', callback);
         await this.page.evaluate(async () => {
-            console.log('SET ONRESULT', recognition);
             recognition.onresult = async (event) => {
                 let endedTranscripts = [];
                 let ongoingTranscript = '';
