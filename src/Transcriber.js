@@ -1,107 +1,60 @@
-import GoogleDoc from './GoogleDoc.js'
-import Input from './Input.js'
 import SETTINGS from './settings.js'
-import { writeTxt } from './utils.js'
 
 const CONFIG = SETTINGS.config;
 
 class Transcriber {
-    constructor(browser, googledoc) {
-        this.browser = browser;
-        this.googledoc = googledoc;
-
+    constructor(speechInput, speechOutputs) {
+        this.speechInput = speechInput;
+        this.speechOutputs = speechOutputs;
         this.language = undefined;
-        this.currText = '';
-        this.isAutoTranscribeOn = false;
-        this.intervals = {
-            updateText: undefined
-        };
-    }
-
-    static async create(browser) {
-        // set google doc
-        const googledocPage = (await browser.pages())[0];
-        const googledoc = new GoogleDoc(googledocPage, CONFIG.googledoc.editableLink);
-
-        return new Transcriber(browser, googledoc);
+        this.isTranscribeOn = false;
     }
 
     async setup() {
-        await this.googledoc.setup();
-        // await this.text2speech.setup();
+        for (const output of this.speechOutputs) await output.setup();
+        await this.speechInput.setup((transcripts) => { // TODO refactor
+            console.log('RECOGNITION: onresult', transcripts);
+            for (const output of this.speechOutputs) output.receive(transcripts);
+        });
+
         await this.setLanguage(CONFIG.defaultLanguage);
-
-        // set shorcuts
-        Input.registerShortcut('init', 
-                                CONFIG.shortcuts.init, 
-                                key => this.resetup());
-        Input.registerShortcut('autoTranscribe', 
-                                CONFIG.shortcuts.autoTranscribe, 
-                                key => this.toggleAutoTranscribe());
-        Object.entries(CONFIG.shortcuts.lang).forEach(([lang, keynames]) =>
-            Input.registerShortcut(lang,
-                                    keynames,
-                                    key => this.setLanguage(lang))
-        );
-
-        console.log('ready')
+        console.log('ready');
     }
 
-    async resetup() {
-        // if !page --> create again
-        await this.googledoc.setup();
-        // await this.text2speech.setup();
+    // async reset() {
+    //     // TODO if !page --> create again?
+    //     // this.language = undefined;
+    //     // await this.setLanguage(CONFIG.defaultLanguage);
+    //     console.log('not implemented');
+    // }
 
-        this.language = undefined;
-        await this.setLanguage(CONFIG.defaultLanguage);
-
-        console.log('ready')
+    async start() {
+        console.log('start');
+        this.isTranscribeOn = true;
+        await this.speechInput.start();
+        for (const output of this.speechOutputs) await output.start();
     }
 
+    async stop() {
+        console.log('stop');
+        this.isTranscribeOn = false;
+        await this.speechInput.stop();
+        for (const output of this.speechOutputs) await output.stop();
+    }
+ 
     async toggleAutoTranscribe() {
-        if (!this.isAutoTranscribeOn) {
-            this.isAutoTranscribeOn = true;
-            // cancel clear subtitle txt timeout
-            // await this.text2speech.autoTranscribe();
-            this.googledoc.autoTranscribe();
-            this.autoUpdateText();
-        }
-        else {
-            this.isAutoTranscribeOn = false;
-            // await this.text2speech.stopAutoTranscribe();
-            this.googledoc.stopAutoTranscribe();
-            // clear subtitle txt after x sec
-            this.stopAutoUpdateText();
-        }
+        if (!this.isTranscribeOn) await this.start();
+        else await this.stop();
     }
 
     async setLanguage(language) {
         if (this.language === language) return;
+
+        console.log('switch language', language);
+        
         this.language = language;
-        await this.googledoc.setLanguage(language);
-        // await this.text2speech.setLanguage(language);
-    }
-
-    autoUpdateText() {
-        if (!this.intervals.updateText)
-            this.intervals.updateText = setInterval(() => this.updateText(), 250);
-    }
-
-    stopAutoUpdateText() {
-        clearInterval(this.intervals.updateText);
-        this.intervals.updateText = undefined;
-    }
-
-    async updateText() {
-        const newText = await this.googledoc.getText();
-
-    //     // write text to .txt
-        writeTxt(CONFIG.subtitle.outputFile, newText);
-
-    //     const textDiff = diff(this.currText, newText);
-    //     // this.text2speech.speak(textDiff)
-
-        this.currText = newText;
+        await this.speechInput.setLanguage(language);
+        for (const output of this.speechOutputs) await output.setLanguage(language);
     }
 };
 

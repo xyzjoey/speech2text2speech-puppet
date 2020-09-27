@@ -1,2 +1,2 @@
 # speech2text2speech-puppet
- transcriber using free web service and puppeteer
+transcriber using web speech API and puppeteer

@@ -1,0 +1,29 @@
+# FIXME no google voice
+# en:
+#   name: en-US
+#   voice: Google US English
+#   speed: 1
+# zh_CN: 
+#   name: zh-cmn
+#   voice: Google 普通话（中国大陆）
+#   speed: 1.25
+# ja: 
+#   name: ja-JP
+#   voice: Google 日本語
+#   speed: 1.25
+
+en:
+  name: en-US
+  voice: Microsoft Zira Desktop - English (United States)
+  speed: 1.75
+  pitch: 2
+zh_CN: 
+  name: zh-cmn
+  voice: Microsoft Huihui Desktop - Chinese (Simplified)
+  speed: 1.75
+  pitch: 2
+ja: 
+  name: ja-JP
+  voice: Microsoft Haruka Desktop - Japanese
+  speed: 1.5
+  pitch: 1.5

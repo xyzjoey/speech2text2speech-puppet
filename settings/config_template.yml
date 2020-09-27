@@ -1,0 +1,15 @@
+puppeteer:
+  headless: false
+  executablePath: xxx
+  userDataDir: xxx
+  devtools: true
+
+defaultLanguage: ja
+
+shortcuts:
+  init: leftShift leftAlt I
+  autoTranscribe: leftShift leftAlt P
+  lang:
+    en: leftShift leftAlt E
+    zh_CN: leftShift leftAlt C
+    ja: leftShift leftAlt J

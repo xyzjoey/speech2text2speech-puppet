@@ -5,12 +5,14 @@ export const readYaml = (path) => {
     return yaml.safeLoad(fs.readFileSync(path, 'utf8'));
 };
 
-export const writeTxt = (path, data) => {
-    fs.writeFile(path, data, (err) => err && console.log(err));
+// export const writeTxt = (filepath, data) => {
+//     fs.writeFile(filepath, data, (err) => err && console.log(err));
+// };
+
+export const getParentHandle = (page, handle) => {
+    return page.evaluateHandle((el) => el?.parentNode, handle);
 };
 
-export const last = (arr) => arr[arr.length-1];
-
-export const removeSpace = (str, pattern=/(\s|\u200C)/g) => str.replace(pattern,'');
-
-export const pixelToNumber = (str) => +str?.replace('px', '');
+export const handleEqual = (page, handle1, handle2) => {
+    return page.evaluate((el1, el2) => el1 === el2, handle1, handle2);
+};

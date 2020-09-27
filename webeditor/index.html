@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Simple Editor</title>
+    <style>
+        .textarea {
+          min-width: 300px;
+          min-height: 400px;
+          width: 300px;
+          height: 400px;
+          padding: 30px 20px;
+          border: solid rgb(0,0,0,0.2);
+          overflow: auto;
+          resize: both;
+          outline: none;
+        }
+        .textarea > div {
+          margin: 10px 0
+        }
+        .underdotted {
+          border-bottom: 2px dotted #000;
+        }
+    </style>
+  </head>
+  <body>
+    <div 
+      id="textarea"
+      class="textarea"
+      contenteditable="true"
+    >
+    <div><br></div>
+    </div>
+  </body>
+  <script>
+    const $ = document.querySelector.bind(document);;
+    const textarea = $("#textarea");
+
+    textarea.oninput = () => {
+      if (!textarea.innerHTML || textarea.innerHTML === "<br>")
+        textarea.innerHTML = "<div><br></div>";
+    //   textarea.style.height = +textarea.style.height + textarea.scrollHeight + "px";
+    };
+
+  </script>
+</html>
